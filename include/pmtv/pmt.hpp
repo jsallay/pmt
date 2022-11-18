@@ -93,7 +93,47 @@ size_t bytes_per_element(const P& value) {
         return sizeof(T); }
         , value.get_base());
 }
+
+template <class T> constexpr uint8_t pmtTypeIndex() {
+    if constexpr(std::same_as<T, std::nullptr_t>) return 0;
+    else if constexpr(std::same_as<T, bool>) return 1;
+    else if constexpr(std::signed_integral<T>) return 2;
+    else if constexpr(std::unsigned_integral<T>) return 3;
+    else if constexpr(std::floating_point<T>) return 4;
+    else if constexpr(Complex<T>) return 5;
+    else if constexpr(std::same_as<T, std::string>) return 6;
+    else if constexpr(std::ranges::range<T>) return 7;
+    else if constexpr(std::same_as<T, std::map<std::string, pmt>>) return 8;
+}
+
+template <class T>
+constexpr uint8_t serialId() {
+    if constexpr(Scalar<T> || std::same_as<T, bool>) {
+        static_assert(sizeof(T) < 16, "Can't serial data wider than 16 bytes");
+        return (pmtTypeIndex<T>() << 4) | sizeof(T);
+    } else return pmtTypeIndex<T>() << 4;
+}
+
+template <class T>
+struct serialInfo {
+    using value_type=T;
+    static constexpr uint8_t value = serialId<T>();
+};
+
 // Can move to library function
+// Code to serialize:
+// primary type
+//   nullptr_t
+//   bool
+//   signed
+//   unsigned
+//   float
+//   string
+//   vector
+//   map
+//
+// For vector, map, and string we have a secondary type and a length
+
 template <IsPmt P>
 size_t serialize(std::streambuf& sb, const P& value) {
     size_t length = 0;
